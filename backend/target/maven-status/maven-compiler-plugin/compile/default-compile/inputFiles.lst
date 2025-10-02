@@ -1,0 +1,9 @@
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/WashSimpleApplication.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/config/CorsConfig.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/config/WebSocketConfig.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/controller/MachineController.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/model/Machine.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/model/QueueEntry.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/repo/MachineRepository.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/repo/QueueEntryRepository.java
+/Users/aniketgaikwad011110/Projects/Wash_Machine/backend/src/main/java/com/example/washsimple/service/MachineService.java
