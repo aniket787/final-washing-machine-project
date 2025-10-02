@@ -14,9 +14,4 @@ public class HomeController {
         return "WashSimple backend is running. Use /api/machines or serve frontend build in /static.";
     }
 
-    // Option B: if you placed React build in resources/static, uncomment to redirect to index.html
-    // @GetMapping("/")
-    // public String index() {
-    //     return "index.html";
-    // }
 }

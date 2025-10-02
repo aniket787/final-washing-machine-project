@@ -11,8 +11,8 @@ public class QueueEntry {
     private Long machineId;
     private Long userId;
     private Instant createdAt;
+    private Integer minutes; // new field
 
-    // getters/setters
     public Long getId(){return id;}
     public void setId(Long id){this.id=id;}
     public Long getMachineId(){return machineId;}
@@ -21,4 +21,6 @@ public class QueueEntry {
     public void setUserId(Long u){this.userId=u;}
     public Instant getCreatedAt(){return createdAt;}
     public void setCreatedAt(Instant t){this.createdAt=t;}
+    public Integer getMinutes(){return minutes;}
+    public void setMinutes(Integer minutes){this.minutes = minutes;}
 }

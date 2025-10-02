@@ -7,6 +7,7 @@ import com.example.washsimple.repo.QueueEntryRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
+
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -40,34 +41,46 @@ public class MachineService {
 
     public List<Machine> list(){ return machineRepo.findAll(); }
 
-    public synchronized Map<String,Object> joinQueue(Long machineId, Long userId){
+    public synchronized Map<String,Object> joinQueue(Long machineId, Long userId, int minutes){
         Optional<Machine> om = machineRepo.findById(machineId);
         if (!om.isPresent()) return Map.of("error","notfound");
         Machine m = om.get();
 
-        if(!m.isInUse()){
-            // direct assignment not allowed until user physically starts; we'll enqueue and indicate position 0 -> allowed to start immediately
-        }
+        // single machine restriction
+        boolean alreadyQueuedOrUsing = queueRepo.findAll().stream()
+                .anyMatch(q -> q.getUserId().equals(userId))
+                || machineRepo.findAll().stream()
+                .anyMatch(mm -> userId.equals(mm.getCurrentUserId()));
+        if(alreadyQueuedOrUsing) return Map.of("error","You can only join one machine at a time!");
+
         QueueEntry qe = new QueueEntry();
         qe.setMachineId(machineId);
         qe.setUserId(userId);
+        qe.setMinutes(minutes);
         qe.setCreatedAt(Instant.now());
         queueRepo.save(qe);
+
         int pos = queueRepo.findByMachineIdOrderByCreatedAt(machineId).size();
         broadcast();
         return Map.of("queued", true, "position", pos);
     }
 
+    public List<QueueEntry> getQueue(Long machineId){
+        return queueRepo.findByMachineIdOrderByCreatedAt(machineId);
+    }
+
+
     public synchronized Map<String,Object> startWashing(Long machineId, Long userId, int minutes){
         Optional<Machine> om = machineRepo.findById(machineId);
         if(om.isEmpty()) return Map.of("error","notfound");
         Machine m = om.get();
-        // remove user's queue entry for this machine if present
+
+        // remove user's queue entry if present
         List<QueueEntry> q = queueRepo.findByMachineIdOrderByCreatedAt(machineId);
         q.stream().filter(e -> e.getUserId().equals(userId)).findFirst().ifPresent(queueRepo::delete);
-        if(m.isInUse()){
-            return Map.of("error","in_use");
-        }
+
+        if(m.isInUse()) return Map.of("error","in_use");
+
         m.setInUse(true);
         m.setCurrentUserId(userId);
         Instant end = Instant.now().plusSeconds(minutes*60L);
@@ -95,6 +108,7 @@ public class MachineService {
         m.setCurrentUserId(null);
         m.setEndTime(null);
         machineRepo.save(m);
+
         // promote next in queue
         List<QueueEntry> q = queueRepo.findByMachineIdOrderByCreatedAt(machineId);
         if(!q.isEmpty()){
@@ -102,7 +116,7 @@ public class MachineService {
             queueRepo.delete(next);
             m.setInUse(true);
             m.setCurrentUserId(next.getUserId());
-            Instant end = Instant.now().plusSeconds(50*60L); // default 50 minutes for promoted user
+            Instant end = Instant.now().plusSeconds(next.getMinutes()*60L);
             m.setEndTime(end);
             machineRepo.save(m);
             scheduleEnd(m);
@@ -120,7 +134,17 @@ public class MachineService {
             mm.put("inUse", m.isInUse());
             mm.put("currentUserId", m.getCurrentUserId());
             mm.put("endTime", m.getEndTime()==null?null:m.getEndTime().toString());
-            mm.put("queueSize", queueRepo.findByMachineIdOrderByCreatedAt(m.getId()).size());
+
+            // send queue details
+            List<QueueEntry> queueEntries = queueRepo.findByMachineIdOrderByCreatedAt(m.getId());
+            List<Map<String,Object>> queueList = new ArrayList<>();
+            for(QueueEntry q : queueEntries){
+                Map<String,Object> qMap = new HashMap<>();
+                qMap.put("userId", q.getUserId());
+                qMap.put("minutes", q.getMinutes() != null ? q.getMinutes() : 50);
+                queueList.add(qMap);
+            }
+            mm.put("queue", queueList);
             out.add(mm);
         }
         messaging.convertAndSend("/topic/machines", out);
