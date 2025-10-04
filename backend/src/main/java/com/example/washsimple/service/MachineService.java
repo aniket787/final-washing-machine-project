@@ -19,8 +19,6 @@ public class MachineService {
     private final SimpMessagingTemplate messaging;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
     private final Map<Long, ScheduledFuture<?>> tasks = new ConcurrentHashMap<>();
-
-    // Track queue-entry IDs we've already notified for the "2-minute" notice.
     private final Set<Long> notifiedQueueEntries = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public MachineService(MachineRepository machineRepo, QueueEntryRepository queueRepo, SimpMessagingTemplate messaging){
@@ -31,18 +29,22 @@ public class MachineService {
 
     @PostConstruct
     public void init(){
-        if(machineRepo.count()==0){
-            for(int i=1;i<=5;i++){
-                Machine m = new Machine();
-                m.setName("Machine "+i);
-                m.setInUse(false);
-                machineRepo.save(m);
-            }
+        // Clear all existing data on startup
+        queueRepo.deleteAll();
+        machineRepo.deleteAll();
+
+        // Initialize 5 clean machines
+        for(int i=1;i<=5;i++){
+            Machine m = new Machine();
+            m.setName("Machine "+i);
+            m.setInUse(false);
+            machineRepo.save(m);
         }
-        // broadcast current state every second (keeps frontend live)
+
+        // broadcast current state every second
         scheduler.scheduleAtFixedRate(this::broadcast,0,1,TimeUnit.SECONDS);
 
-        // notifier checks each 30 seconds for upcoming turns (2-minute pre-notify)
+        // notifier checks each 30 seconds
         scheduler.scheduleAtFixedRate(this::scheduleNotifier,5,30,TimeUnit.SECONDS);
     }
 
@@ -53,7 +55,6 @@ public class MachineService {
         if (!om.isPresent()) return Map.of("error","notfound");
         Machine m = om.get();
 
-        // single machine restriction
         boolean alreadyQueuedOrUsing = queueRepo.findAll().stream()
                 .anyMatch(q -> q.getUserId().equals(userId))
                 || machineRepo.findAll().stream()
@@ -68,8 +69,6 @@ public class MachineService {
         queueRepo.save(qe);
 
         int pos = queueRepo.findByMachineIdOrderByCreatedAt(machineId).size();
-        // reset notification flag for this entry just in case
-        // (we'll rely on its generated id after save when scheduleNotifier runs)
         broadcast();
         return Map.of("queued", true, "position", pos);
     }
@@ -79,12 +78,10 @@ public class MachineService {
         if(om.isEmpty()) return Map.of("error","notfound");
         Machine m = om.get();
 
-        // Prevent the same user from starting multiple machines simultaneously
         if(machineRepo.findAll().stream().anyMatch(mm -> userId.equals(mm.getCurrentUserId()))) {
             return Map.of("error", "You can only start one machine at a time!");
         }
 
-        // remove user's queue entry if present for this machine
         queueRepo.findByMachineIdOrderByCreatedAt(machineId).stream()
                 .filter(e -> e.getUserId().equals(userId))
                 .findFirst().ifPresent(queueRepo::delete);
@@ -121,7 +118,6 @@ public class MachineService {
         m.setEndTime(null);
         machineRepo.save(m);
 
-        // promote next in queue
         List<QueueEntry> q = queueRepo.findByMachineIdOrderByCreatedAt(machineId);
         if(!q.isEmpty()){
             QueueEntry next = q.get(0);
@@ -133,8 +129,6 @@ public class MachineService {
             machineRepo.save(m);
             scheduleEnd(m);
         }
-        // If a queue entry was notified but now promoted, remove from notified set
-        // (so future entries can be notified appropriately on other machines)
         notifiedQueueEntries.removeIf(id -> q.stream().noneMatch(e -> e.getId().equals(id)));
 
         broadcast();
@@ -144,30 +138,21 @@ public class MachineService {
         return queueRepo.findByMachineIdOrderByCreatedAt(machineId);
     }
 
-    /**
-     * Notifier: checks each machine's queue and expected start times for queued entries.
-     * If an entry's expected start is <= 2 minutes from now and we haven't notified it,
-     * send a notification payload to /topic/notifications and mark it notified.
-     */
     private void scheduleNotifier(){
         try {
             List<Machine> machines = machineRepo.findAll();
             long now = Instant.now().getEpochSecond();
 
             for(Machine m : machines){
-                // get the start epoch (time when current wash ends or now)
                 long startEpoch = (m.getEndTime() != null) ? m.getEndTime().getEpochSecond() : now;
-
-                // get queue entries in order
                 List<QueueEntry> queue = queueRepo.findByMachineIdOrderByCreatedAt(m.getId());
 
-                long accum = 0L; // seconds accumulated for earlier queue entries
+                long accum = 0L;
                 for(int i=0; i<queue.size(); i++){
                     QueueEntry entry = queue.get(i);
                     long expectedStartEpoch = startEpoch + accum;
                     long secondsUntilStart = expectedStartEpoch - now;
 
-                    // If within 2 minutes (<=120s) and not yet notified, notify
                     if(secondsUntilStart <= 120 && secondsUntilStart > 0 && !notifiedQueueEntries.contains(entry.getId())){
                         Map<String,Object> payload = new HashMap<>();
                         payload.put("type", "PRE_NOTIFY");
@@ -178,26 +163,18 @@ public class MachineService {
                         payload.put("minutesUntilStart", Math.ceil(secondsUntilStart / 60.0));
                         payload.put("expectedStartEpoch", expectedStartEpoch);
 
-                        // send to topic; frontend will filter notifications by userId
                         messaging.convertAndSend("/topic/notifications", payload);
-
-                        // mark as notified to avoid duplicate notifications
                         notifiedQueueEntries.add(entry.getId());
                     }
 
-                    // accumulate this entry's minutes for the next entry
                     accum += (entry.getMinutes() != null ? entry.getMinutes() : 50) * 60L;
                 }
             }
         } catch (Exception ex){
-            // Log and continue; avoid crashing scheduler
             ex.printStackTrace();
         }
     }
 
-    /**
-     * Broadcast current machine states including queue (userId + minutes)
-     */
     private void broadcast(){
         List<Machine> machines = machineRepo.findAll();
         List<Map<String,Object>> out = new ArrayList<>();
@@ -209,7 +186,6 @@ public class MachineService {
             mm.put("currentUserId", m.getCurrentUserId());
             mm.put("endTime", m.getEndTime()==null?null:m.getEndTime().toString());
 
-            // include queue entries with userId and minutes
             List<QueueEntry> queueEntries = queueRepo.findByMachineIdOrderByCreatedAt(m.getId());
             List<Map<String,Object>> queueList = new ArrayList<>();
             for(QueueEntry q : queueEntries){
