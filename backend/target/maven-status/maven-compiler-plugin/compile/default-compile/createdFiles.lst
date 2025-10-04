@@ -1,10 +1,10 @@
 com/example/washsimple/repo/QueueEntryRepository.class
 com/example/washsimple/model/Machine.class
-com/example/washsimple/config/WebSocketConfig.class
 com/example/washsimple/HomeController.class
 com/example/washsimple/model/QueueEntry.class
-com/example/washsimple/WashSimpleApplication.class
-com/example/washsimple/service/MachineService.class
 com/example/washsimple/config/CorsConfig.class
 com/example/washsimple/controller/MachineController.class
 com/example/washsimple/repo/MachineRepository.class
+com/example/washsimple/config/WebSocketConfig.class
+com/example/washsimple/WashSimpleApplication.class
+com/example/washsimple/service/MachineService.class

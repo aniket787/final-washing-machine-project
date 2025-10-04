@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/machines")
-@CrossOrigin(origins = "http://localhost:3000")
 public class MachineController {
     private final MachineService service;
     public MachineController(MachineService service){this.service=service;}
@@ -34,7 +33,7 @@ public class MachineController {
 
     @GetMapping("/queue/{machineId}")
     public List<Map<String,Object>> getQueue(@PathVariable Long machineId){
-        List<QueueEntry> queue = service.getQueue(machineId); // now exists
+        List<QueueEntry> queue = service.getQueue(machineId);
         return queue.stream().map(qe -> {
             Map<String,Object> m = new HashMap<>();
             m.put("userId", qe.getUserId());
