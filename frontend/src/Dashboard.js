@@ -1,20 +1,3 @@
-//
-//// Find these:
-//fetch("/api/machines")
-//fetch("/api/machines/join", ...)
-//fetch("/api/machines/start", ...)
-//
-//// Change to:
-//fetch(`${API_BASE}/api/machines`)
-//fetch(`${API_BASE}/api/machines/join`, ...)
-//fetch(`${API_BASE}/api/machines/start`, ...)
-
-
-
-
-const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8080';
-
-
 import React, { useEffect, useState, useRef } from "react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
@@ -29,6 +12,12 @@ export default function Dashboard() {
   const intervalRef = useRef(null);
 
   useEffect(() => {
+    // Reset data on page load
+    fetch("/api/machines/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }).catch(e => console.error("Reset failed", e));
+
     const socket = new SockJS("/ws");
     const client = new Client({
       webSocketFactory: () => socket,
