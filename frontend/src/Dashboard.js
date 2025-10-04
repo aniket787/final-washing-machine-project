@@ -1,3 +1,20 @@
+//
+//// Find these:
+//fetch("/api/machines")
+//fetch("/api/machines/join", ...)
+//fetch("/api/machines/start", ...)
+//
+//// Change to:
+//fetch(`${API_BASE}/api/machines`)
+//fetch(`${API_BASE}/api/machines/join`, ...)
+//fetch(`${API_BASE}/api/machines/start`, ...)
+
+
+
+
+const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8080';
+
+
 import React, { useEffect, useState, useRef } from "react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
