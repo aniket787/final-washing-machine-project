@@ -122,7 +122,7 @@ export default function Dashboard() {
     }, 10000);
 
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("WashSimple", {
+      new Notification("WashMate", {
         body: notifMsg,
         icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='80'>💧</text></svg>"
       });
@@ -330,7 +330,7 @@ export default function Dashboard() {
           <div className="header">
             <div className="header-title">
               <span className="header-title-icon">💧</span>
-              <h1>WashSimple</h1>
+              <h1>WashMate</h1>
             </div>
 
             <div className="header-controls">
