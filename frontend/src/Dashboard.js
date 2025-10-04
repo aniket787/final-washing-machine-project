@@ -2,12 +2,16 @@ import React, { useEffect, useState, useRef } from "react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 
+// API_BASE setup
+//const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8080';
+
 export default function Dashboard() {
   const [machines, setMachines] = useState([]);
   const [users, setUsers] = useState([{ id: 1, name: "User1" }]);
   const [currentUserId, setCurrentUserId] = useState(1);
   const [notifications, setNotifications] = useState([]);
   const [completedWashes, setCompletedWashes] = useState(new Set());
+  const [queueOpenMobile, setQueueOpenMobile] = useState(false);
   const clientRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -19,6 +23,7 @@ export default function Dashboard() {
     }).catch(e => console.error("Reset failed", e));
 
     const socket = new SockJS("/ws");
+
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
@@ -276,6 +281,8 @@ export default function Dashboard() {
   return (
     <div className="dashboard-wrapper">
       <div className="container">
+
+        {/* Notifications */}
         {notifications.length > 0 && (
           <div style={{
             position: 'fixed',
@@ -306,12 +313,26 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Floating Hamburger button for mobile */}
+        <button
+          onClick={() => setQueueOpenMobile(!queueOpenMobile)}
+          className="hamburger-btn-floating"
+        >
+          <span className="hamburger-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+        </button>
+
+        {/* Header */}
         <div className="header-card">
           <div className="header">
             <div className="header-title">
               <span className="header-title-icon">💧</span>
               <h1>WashSimple</h1>
             </div>
+
             <div className="header-controls">
               <span className="header-controls-icon">👤</span>
               <select
@@ -329,6 +350,7 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Completed washes / active sessions / no sessions */}
           {completedWashes.has(currentUserId) ? (
             <div style={{
               background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
@@ -378,6 +400,7 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Main content */}
         <div className="main-content">
           <div className="machine-grid">
             {machines.map(m => {
@@ -441,8 +464,22 @@ export default function Dashboard() {
             })}
           </div>
 
-          <div className="queue-panel">
-            <h3>All Queues</h3>
+          {/* Queue panel */}
+          <div className={`queue-panel ${queueOpenMobile ? 'show-mobile' : ''}`}>
+            <button
+              onClick={() => setQueueOpenMobile(false)}
+              className="close-queue-btn"
+            >
+              <span style={{ fontSize: '20px' }}>✕</span>
+            </button>
+
+            <div style={{
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111827' }}>All Queues</h3>
+            </div>
             {machines.length === 0 ? (
               <div className="queue-empty">No machines available</div>
             ) : (
@@ -477,6 +514,109 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+
+
+      {/* Inline CSS */}
+      <style>{`
+        .hamburger-btn-floating {
+          display: none;
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: white;
+          border: none;
+          font-size: 28px;
+          cursor: pointer;
+          padding: 12px 16px;
+          color: #374151;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          z-index: 997;
+          transition: all 0.2s ease;
+        }
+
+        .hamburger-btn-floating:hover {
+          background: #f3f4f6;
+          transform: scale(1.05);
+        }
+
+        .hamburger-btn-floating:active {
+          transform: scale(0.95);
+        }
+
+        .close-queue-btn {
+          display: none;
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: #fee2e2;
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          color: #dc2626;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          font-weight: 700;
+          box-shadow: 0 2px 6px rgba(220, 38, 38, 0.15);
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          flex-shrink: 0;
+          z-index: 10;
+        }
+
+        .close-queue-btn span {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+        }
+
+        .close-queue-btn:hover {
+          background: #fecaca;
+          color: #b91c1c;
+          transform: scale(1.1);
+        }
+
+        .close-queue-btn:active {
+          transform: scale(0.9);
+          box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+        }
+
+        @media (max-width: 768px) {
+          .hamburger-btn-floating {
+            display: block !important;
+          }
+
+          .queue-panel {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 85%;
+            max-width: 400px;
+            background: white;
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+            z-index: 999;
+            overflow-y: auto;
+            padding: 20px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+          }
+
+          .queue-panel.show-mobile {
+            display: block !important;
+            transform: translateX(0);
+          }
+
+          .close-queue-btn {
+            display: block !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
